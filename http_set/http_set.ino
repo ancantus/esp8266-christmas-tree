@@ -1,4 +1,4 @@
-#include <Adafruit_NeoPixel.h>
+#include <NeoPixelBus.h>
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -10,11 +10,7 @@ ESP8266WebServer server(80);
 constexpr std::uint32_t PIN = 6u;
 constexpr std::uint32_t NUMROWS = 5u;
 constexpr std::uint32_t NUMPIXELS = NUMROWS * NUMROWS;
-Adafruit_NeoPixel pixels(NUMPIXELS, PIN);
-
-std::uint32_t red = 0u;
-std::uint32_t green = 0u;
-std::uint32_t blue = 0u;
+NeoPixelBus<NeoGrbFeature, NeoEsp8266DmaWs2812xMethod> pixels(NUMPIXELS);
 
 void handleRoot() {
   String html = "<h1>RTC Christmas Tree</h1>";
@@ -39,10 +35,18 @@ std::uint32_t readArg(const String& tag, std::uint32_t other)
   return other;
 }
 
-void handleSubmitForm() {
-  red = readArg("red", red);
-  green = readArg("green", green);
-  blue = readArg("blue", blue);
+void handleSubmitForm() 
+{
+  const RgbColor color{
+    readArg("red", 0), 
+    readArg("green", 0),
+    readArg("blue", 0)
+  };
+  for (std::uint32_t i = 0u; i < NUMPIXELS; i++)
+  {
+    pixels.SetPixelColor(i, color);
+  }
+  pixels.Show();
 
   server.sendHeader("Location", "/", true); // Redirect back to root
   server.send(302, "text/plain", "");
@@ -66,17 +70,12 @@ void setup()
   server.on("/submitForm", handleSubmitForm);
   server.begin();
 
-  pixels.begin();
+  // this resets all the neopixels to an off state
+  pixels.Begin();
+  pixels.Show();
 }
 
 void loop() 
 {
   server.handleClient();
-
-  const uint32_t color = pixels.Color(red, green, blue);
-  for (std::uint32_t i = 0u; i < NUMPIXELS; i++)
-  {
-    pixels.setPixelColor(i, color);
-  }
-  // TODO: switch to neopixelbus for DMA based option. Otherwise we trigger watchdog.
 }
